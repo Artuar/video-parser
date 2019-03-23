@@ -6,15 +6,17 @@ from mrcnn import utils
 import mrcnn.model as modellib
 from mrcnn import visualize
 from mrcnn.config import Config
+from statistics import mode, StatisticsError
 
-MAKING_VIDEO_WITH_DETECTION = True
-MAKING_PHOTO_WITH_DETECTION = True
-MAKING_PHOTO_WITHOUT_DETECTION = True
+MAKING_VIDEO_WITH_DETECTION = False
+MAKING_PHOTO_WITH_DETECTION = False
+MAKING_PHOTO_WITHOUT_DETECTION = False
+DIFFERENT_THEMES_ON_PHOTO = False
 
-COUNT_OF_VIDEO_PARTS = 5
-COUNT_OF_TOP_PHOTOS = 5
+COUNT_OF_VIDEO_PARTS = 30
+COUNT_OF_TOP_PHOTOS = 3
 
-FILE_NAME = "cats.mp4"
+FILE_NAME = "fishes.mp4"
 VIDEO_STREAM = "./videos/"
 
 # Root directory of the project
@@ -31,6 +33,11 @@ if not os.path.exists(COCO_MODEL_PATH):
     utils.download_trained_weights(COCO_MODEL_PATH)
 # Special settings for making video
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+# clean directory
+file_list = [ f for f in os.listdir(RESULT_DIR)]
+for f in file_list:
+    os.remove(os.path.join(RESULT_DIR, f))
 
 
 class CocoConfig(Config):
@@ -57,7 +64,7 @@ class InferenceConfig(CocoConfig):
     # Set batch size to 1 since we'll be running inference on
     # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
     GPU_COUNT = 1
-    IMAGES_PER_GPU = 1
+    IMAGES_PER_GPU = COUNT_OF_VIDEO_PARTS
     # MAX_GT_INSTANCES = 100
     # TRAIN_ROIS_PER_IMAGE = 50
     # BACKBONE = "resnet50" #not working at all!
@@ -95,10 +102,57 @@ def display_instances(image, boxes, masks, ids, names, scores):
     return image
 
 
-def get_the_best_frames_indexes(details):
-    indexes = []
-    # TODO get
-    return indexes
+def get_theme_by_class(cl):
+    if cl > 81:
+        return 'other'
+    if cl > 58:
+        return 'home'
+    if cl > 42:
+        return 'food/restaurant'
+    if cl > 25:
+        return 'sport/walking'
+    if cl > 14:
+        return 'animals'
+    if cl > 2:
+        return 'travel/transport'
+    if cl > 1:
+        return 'people'
+    return 'other'
+
+
+def get_photo_themes(classes, detections):
+    themes = []
+    for ind in range(len(classes)):
+        cl = classes[ind]
+        if detections[ind] > 0.8:
+            theme = get_theme_by_class(cl)
+            themes.append(theme)
+
+    if len(themes) == 0:
+        return ""
+
+    first = themes[0]
+    try:
+        return mode(themes)
+    except StatisticsError:
+        return first
+
+
+def sort_second(val):
+    return val[1]
+
+
+def get_the_best_frames_photos(details, main_theme):
+    photos = []
+    for ind in range(len(details)):
+        detail = details[ind]
+        theme = detail[0]
+        if theme == main_theme or DIFFERENT_THEMES_ON_PHOTO:
+            photos.append(detail)
+
+    photos.sort(key=sort_second)
+
+    return photos
 
 
 config = InferenceConfig()
@@ -134,33 +188,27 @@ class_names = ['BG', 'person',
                'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors',
                'teddy bear', 'hair drier', 'toothbrush']
 
-type_of_classes = [
-    ['people', 1, 1],
-    ['travel/transport', 2, 13],
-    ['animals', 14, 24],
-    ['sport/walking', 25, 40],
-    ['food/restaurant', 41, 57],
-    ['home', 58, 81],
-]
-
 photos_details = []
+photos_themes = []
+video_theme = ''
 
 # Initialize the video stream and pointer to output video file
 vs = cv2.VideoCapture(VIDEO_STREAM + FILE_NAME)
 count_of_frames = int(vs.get(cv2.CAP_PROP_FRAME_COUNT))
 writer = None
-i = 0
-while i < COUNT_OF_VIDEO_PARTS:
+inde = 0
+frame_list = []
+while inde < COUNT_OF_VIDEO_PARTS:
     # go to next n frames forward
-    frame_number = i * count_of_frames / COUNT_OF_VIDEO_PARTS
+    frame_number = inde * count_of_frames / COUNT_OF_VIDEO_PARTS
     vs.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
     # read the next frame from the file
     (grabbed, frame) = vs.read()
 
-    i += 1
+    inde += 1
 
     if MAKING_PHOTO_WITHOUT_DETECTION:
-        cv2.imwrite(RESULT_DIR + str(i) + '.jpeg', frame)
+        cv2.imwrite(RESULT_DIR + str(inde) + '.jpeg', frame)
 
     # If the frame was not grabbed, then we have reached the end
     # of the stream
@@ -169,13 +217,25 @@ while i < COUNT_OF_VIDEO_PARTS:
         break
 
     # Run detection
-    results = model.detect([frame], verbose=1)
+    # reduced_frame = cv2.resize(frame, (480, 260))
+    # blurred_frame = cv2.blur(reduced_frame, (5, 5))
+    # cv2.imwrite(RESULT_DIR + str(i) + '_reduced.jpeg', blurred_frame)
+    frame_list.append(frame)
+
+results = model.detect(frame_list, verbose=1)
+
+for i in range(len(results)):
+    frame = frame_list[i]
+
     # Visualize results
-    r = results[0]
+    r = results[i]
 
-    photos_details.append([r['class_ids'], r['scores'], frame_number])
+    photo_themes = get_photo_themes(r['class_ids'], r['scores'])
+    if photo_themes != "":
+        photos_themes.append(photo_themes)
+        photos_details.append([photo_themes, np.array(r['scores'].tolist()).mean(), frame])
 
-    if MAKING_VIDEO_WITH_DETECTION | MAKING_PHOTO_WITH_DETECTION:
+    if MAKING_VIDEO_WITH_DETECTION or MAKING_PHOTO_WITH_DETECTION:
         masked_frame = display_instances(frame, r['rois'], r['masks'], r['class_ids'],
                                          class_names, r['scores'])
 
@@ -184,7 +244,7 @@ while i < COUNT_OF_VIDEO_PARTS:
             if writer is None:
                 # Initialize our video writer
                 fourcc = cv2.VideoWriter_fourcc(*"XVID")
-                writer = cv2.VideoWriter(RESULT_DIR + FILE_NAME, fourcc, 30,
+                writer = cv2.VideoWriter(RESULT_DIR + FILE_NAME, fourcc, 30, #TODO it depends on COUNT_OF_VIDEO_PARTS
                                          (masked_frame.shape[1], masked_frame.shape[0]), True)
             # Write the output frame to disk
             writer.write(masked_frame)
@@ -192,7 +252,14 @@ while i < COUNT_OF_VIDEO_PARTS:
         if MAKING_PHOTO_WITH_DETECTION:
             cv2.imwrite(RESULT_DIR + str(i) + '_rec.jpeg', frame)
 
-the_best_frames = get_the_best_frames_indexes(photos_details)
+video_theme = mode(photos_themes) #TODO try catch
+the_best_photos = get_the_best_frames_photos(photos_details, video_theme)
+
+for index in range(COUNT_OF_TOP_PHOTOS): #TODO but no more then len(the_best_photos)
+    photo_data = the_best_photos[index]
+    photo = photo_data[2]
+    cv2.imwrite(RESULT_DIR + str(index) + '_best.jpeg', photo)
+
 
 # Release the file pointers
 print("[INFO] cleaning up...")
