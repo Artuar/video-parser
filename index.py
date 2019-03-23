@@ -9,12 +9,12 @@ from mrcnn.config import Config
 
 MAKING_VIDEO_WITH_DETECTION = False
 MAKING_PHOTO_WITH_DETECTION = False
-MAKING_PHOTO_WITHOUT_DETECTION = False
+MAKING_PHOTO_WITHOUT_DETECTION = True
 
 COUNT_OF_VIDEO_PARTS = 5
 COUNT_OF_TOP_PHOTOS = 5
 
-FILE_NAME = "afina.mp4"
+FILE_NAME = "cats.mp4"
 
 VIDEO_STREAM = "./videos/"
 PHOTOS_WITH_DETECTION_DIR_OUT = "./result/photos_with_detection/"
@@ -100,7 +100,6 @@ def display_instances(image, boxes, masks, ids, names, scores):
 
 def get_the_best_frames_indexes(details):
     indexes = []
-
     return indexes
 
 
