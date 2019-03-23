@@ -107,5 +107,4 @@ venv.bak/
 
 /logs/
 /mask_rcnn_coco.h5
-/result/photos/*
-/result/photos_with_detection/*
+/result/**

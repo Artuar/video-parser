@@ -7,19 +7,15 @@ import mrcnn.model as modellib
 from mrcnn import visualize
 from mrcnn.config import Config
 
-MAKING_VIDEO_WITH_DETECTION = False
-MAKING_PHOTO_WITH_DETECTION = False
+MAKING_VIDEO_WITH_DETECTION = True
+MAKING_PHOTO_WITH_DETECTION = True
 MAKING_PHOTO_WITHOUT_DETECTION = True
 
 COUNT_OF_VIDEO_PARTS = 5
 COUNT_OF_TOP_PHOTOS = 5
 
 FILE_NAME = "cats.mp4"
-
 VIDEO_STREAM = "./videos/"
-PHOTOS_WITH_DETECTION_DIR_OUT = "./result/photos_with_detection/"
-PHOTOS_DIR_OUT = "./result/photos/"
-VIDEO_STREAM_OUT = "./result/"
 
 # Root directory of the project
 ROOT_DIR = os.path.abspath(".")
@@ -27,6 +23,7 @@ ROOT_DIR = os.path.abspath(".")
 sys.path.append(ROOT_DIR)  # To find local version of the library
 # Directory to save logs and trained model
 MODEL_DIR = os.path.join(ROOT_DIR, "logs")
+RESULT_DIR = os.path.join(ROOT_DIR, "result") + '/'
 # Local path to trained weights file
 COCO_MODEL_PATH = os.path.join(ROOT_DIR, "mask_rcnn_coco.h5")
 # Download COCO trained weights from Releases if needed
@@ -100,6 +97,7 @@ def display_instances(image, boxes, masks, ids, names, scores):
 
 def get_the_best_frames_indexes(details):
     indexes = []
+    # TODO get
     return indexes
 
 
@@ -162,7 +160,7 @@ while i < COUNT_OF_VIDEO_PARTS:
     i += 1
 
     if MAKING_PHOTO_WITHOUT_DETECTION:
-        cv2.imwrite(PHOTOS_DIR_OUT + str(i) + '.jpeg', frame)
+        cv2.imwrite(RESULT_DIR + str(i) + '.jpeg', frame)
 
     # If the frame was not grabbed, then we have reached the end
     # of the stream
@@ -186,13 +184,13 @@ while i < COUNT_OF_VIDEO_PARTS:
             if writer is None:
                 # Initialize our video writer
                 fourcc = cv2.VideoWriter_fourcc(*"XVID")
-                writer = cv2.VideoWriter(VIDEO_STREAM_OUT, fourcc, 30,
+                writer = cv2.VideoWriter(RESULT_DIR + FILE_NAME, fourcc, 30,
                                          (masked_frame.shape[1], masked_frame.shape[0]), True)
             # Write the output frame to disk
             writer.write(masked_frame)
 
         if MAKING_PHOTO_WITH_DETECTION:
-            cv2.imwrite(PHOTOS_WITH_DETECTION_DIR_OUT + str(i) + '_rec.jpeg', frame)
+            cv2.imwrite(RESULT_DIR + str(i) + '_rec.jpeg', frame)
 
 the_best_frames = get_the_best_frames_indexes(photos_details)
 
