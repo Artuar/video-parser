@@ -16,7 +16,7 @@ DIFFERENT_THEMES_ON_PHOTO = False
 COUNT_OF_VIDEO_PARTS = 30
 COUNT_OF_TOP_PHOTOS = 3
 
-FILE_NAME = "fishes.mp4"
+FILE_NAME = "cats.mp4"
 VIDEO_STREAM = "./videos/"
 
 # Root directory of the project
