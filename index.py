@@ -11,10 +11,11 @@ from statistics import mode, StatisticsError
 MAKING_VIDEO_WITH_DETECTION = False
 MAKING_PHOTO_WITH_DETECTION = False
 MAKING_PHOTO_WITHOUT_DETECTION = False
-DIFFERENT_THEMES_ON_PHOTO = False
+INCLUDING_ALL_PHOTOS = True
+MINIMAL_DETECTION = 0.95
 
 COUNT_OF_VIDEO_PARTS = 30
-COUNT_OF_TOP_PHOTOS = 3
+COUNT_OF_TOP_PHOTOS = 5
 
 FILE_NAME = "cats.mp4"
 VIDEO_STREAM = "./videos/"
@@ -35,7 +36,7 @@ if not os.path.exists(COCO_MODEL_PATH):
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 # clean directory
-file_list = [ f for f in os.listdir(RESULT_DIR)]
+file_list = [f for f in os.listdir(RESULT_DIR)]
 for f in file_list:
     os.remove(os.path.join(RESULT_DIR, f))
 
@@ -103,43 +104,44 @@ def display_instances(image, boxes, masks, ids, names, scores):
 
 
 def get_theme_by_class(cl):
-    if cl > 81:
+    if cl > 80:
         return 'other'
-    if cl > 58:
+    if cl > 57:
         return 'home'
-    if cl > 42:
+    if cl > 41:
         return 'food/restaurant'
-    if cl > 25:
+    if cl > 24:
         return 'sport/walking'
-    if cl > 14:
+    if cl > 13:
         return 'animals'
-    if cl > 2:
-        return 'travel/transport'
     if cl > 1:
+        return 'travel/transport'
+    if cl > 0:
         return 'people'
     return 'other'
 
 
 def get_photo_themes(classes, detections):
-    themes = []
-    for ind in range(len(classes)):
-        cl = classes[ind]
-        if detections[ind] > 0.8:
-            theme = get_theme_by_class(cl)
-            themes.append(theme)
+    if len(detections) == 0:
+        return ['other', 0]
+    lst = detections.tolist()
+    mid_detect = np.array(lst).mean()
+    if mid_detect < MINIMAL_DETECTION:
+        return ['other', 0]
 
-    if len(themes) == 0:
-        return ""
-
-    first = themes[0]
-    try:
-        return mode(themes)
-    except StatisticsError:
-        return first
+    max_detect = np.array(lst).max()
+    index_of_max = lst.index(max_detect)
+    return [get_theme_by_class(classes[index_of_max]), max_detect]
 
 
 def sort_second(val):
     return val[1]
+
+
+def sort_by_blur(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    fm = cv2.Laplacian(gray, cv2.CV_64F).var()
+    return fm
 
 
 def get_the_best_frames_photos(details, main_theme):
@@ -147,12 +149,19 @@ def get_the_best_frames_photos(details, main_theme):
     for ind in range(len(details)):
         detail = details[ind]
         theme = detail[0]
-        if theme == main_theme or DIFFERENT_THEMES_ON_PHOTO:
+        if theme == main_theme or INCLUDING_ALL_PHOTOS:
             photos.append(detail)
 
-    photos.sort(key=sort_second)
+    photos.sort(key=sort_second, reverse=True)
 
     return photos
+
+
+def get_most_often_value(arr):
+    try:
+        return mode(arr)
+    except StatisticsError:
+        return arr[0] or 'other'
 
 
 config = InferenceConfig()
@@ -198,9 +207,9 @@ count_of_frames = int(vs.get(cv2.CAP_PROP_FRAME_COUNT))
 writer = None
 inde = 0
 frame_list = []
-while inde < COUNT_OF_VIDEO_PARTS:
+while inde < COUNT_OF_VIDEO_PARTS*2:
     # go to next n frames forward
-    frame_number = inde * count_of_frames / COUNT_OF_VIDEO_PARTS
+    frame_number = inde * count_of_frames / (COUNT_OF_VIDEO_PARTS*2)
     vs.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
     # read the next frame from the file
     (grabbed, frame) = vs.read()
@@ -208,7 +217,7 @@ while inde < COUNT_OF_VIDEO_PARTS:
     inde += 1
 
     if MAKING_PHOTO_WITHOUT_DETECTION:
-        cv2.imwrite(RESULT_DIR + str(inde) + '.jpeg', frame)
+        cv2.imwrite(RESULT_DIR + str(inde) + '.jpg', frame)
 
     # If the frame was not grabbed, then we have reached the end
     # of the stream
@@ -222,6 +231,11 @@ while inde < COUNT_OF_VIDEO_PARTS:
     # cv2.imwrite(RESULT_DIR + str(i) + '_reduced.jpeg', blurred_frame)
     frame_list.append(frame)
 
+frame_list.sort(key=sort_by_blur, reverse=True)
+print(len(frame_list))
+frame_list = frame_list[0:COUNT_OF_VIDEO_PARTS]
+print(len(frame_list))
+
 results = model.detect(frame_list, verbose=1)
 
 for i in range(len(results)):
@@ -230,10 +244,11 @@ for i in range(len(results)):
     # Visualize results
     r = results[i]
 
-    photo_themes = get_photo_themes(r['class_ids'], r['scores'])
+    [photo_themes, detection] = get_photo_themes(r['class_ids'], r['scores'])
     if photo_themes != "":
         photos_themes.append(photo_themes)
-        photos_details.append([photo_themes, np.array(r['scores'].tolist()).mean(), frame])
+        photos_details.append([photo_themes, detection, frame])
+        # photos_details.append([photo_themes, max_detection, frame])
 
     if MAKING_VIDEO_WITH_DETECTION or MAKING_PHOTO_WITH_DETECTION:
         masked_frame = display_instances(frame, r['rois'], r['masks'], r['class_ids'],
@@ -244,22 +259,22 @@ for i in range(len(results)):
             if writer is None:
                 # Initialize our video writer
                 fourcc = cv2.VideoWriter_fourcc(*"XVID")
-                writer = cv2.VideoWriter(RESULT_DIR + FILE_NAME, fourcc, 30, #TODO it depends on COUNT_OF_VIDEO_PARTS
+                writer = cv2.VideoWriter(RESULT_DIR + FILE_NAME, fourcc, 30,  # TODO it depends on COUNT_OF_VIDEO_PARTS
                                          (masked_frame.shape[1], masked_frame.shape[0]), True)
             # Write the output frame to disk
             writer.write(masked_frame)
 
         if MAKING_PHOTO_WITH_DETECTION:
-            cv2.imwrite(RESULT_DIR + str(i) + '_rec.jpeg', frame)
+            cv2.imwrite(RESULT_DIR + str(i) + '_rec.jpg', frame)
 
-video_theme = mode(photos_themes) #TODO try catch
+video_theme = get_most_often_value(photos_themes)
 the_best_photos = get_the_best_frames_photos(photos_details, video_theme)
 
-for index in range(COUNT_OF_TOP_PHOTOS): #TODO but no more then len(the_best_photos)
+for index in range(COUNT_OF_TOP_PHOTOS):  # TODO but no more then len(the_best_photos)
     photo_data = the_best_photos[index]
     photo = photo_data[2]
-    cv2.imwrite(RESULT_DIR + str(index) + '_best.jpeg', photo)
-
+    cv2.imwrite(RESULT_DIR + str(index) + '_best.jpg', photo)
+    print(photo_data[1], photo_data[0])
 
 # Release the file pointers
 print("[INFO] cleaning up...")
