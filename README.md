@@ -1,5 +1,10 @@
+useful links:
+
+detection:
 https://dzone.com/articles/how-to-use-google-colaboratory-for-video-processin
 
+blur:
 https://www.pyimagesearch.com/2015/09/07/blur-detection-with-opencv/
 
-https://pysource.com/2018/07/20/find-similarities-between-two-images-with-opencv-and-python/
+compare:
+https://www.pyimagesearch.com/2014/09/15/python-compare-two-images/
