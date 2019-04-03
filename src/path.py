@@ -5,7 +5,7 @@ import sys
 ROOT_DIR = os.path.abspath(".")
 # Import Mask RCNN
 
-RESULT_DIR = os.path.join(ROOT_DIR, "result") + '/'
+RESULT_DIR = os.path.join(ROOT_DIR, "static") + '/'
 # Local path to trained weights file
 COCO_MODEL_PATH = os.path.join(ROOT_DIR, "mask_rcnn_coco.h5")
 

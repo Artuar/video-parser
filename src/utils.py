@@ -19,7 +19,11 @@ def clean_directory(directory):
     # clean directory
     file_list = [f for f in os.listdir(directory)]
     for f in file_list:
-        os.remove(os.path.join(directory, f))
+        remove_file(directory, f)
+
+
+def remove_file(path, name):
+    os.remove(os.path.join(path, name))
 
 
 def get_most_often_value(arr):

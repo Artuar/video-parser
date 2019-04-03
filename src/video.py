@@ -1,6 +1,6 @@
 import cv2
 import os
-from src.constants import COUNT_OF_VIDEO_PARTS, MAKING_PHOTO_WITHOUT_DETECTION
+from src.constants import COUNT_OF_VIDEO_PARTS, MAKING_PHOTO_WITHOUT_DETECTION, EXTRA_FRAMES_MULTIPLY
 from src.path import RESULT_DIR
 
 # Special settings for making video
@@ -15,9 +15,9 @@ def get_frame_list(url):
     frame_index = 0
     frame_list = []
 
-    while frame_index < COUNT_OF_VIDEO_PARTS * 2:
+    while frame_index < COUNT_OF_VIDEO_PARTS * EXTRA_FRAMES_MULTIPLY:
         # go to next n frames forward
-        frame_number = frame_index * count_of_frames / (COUNT_OF_VIDEO_PARTS * 2)
+        frame_number = frame_index * count_of_frames / (COUNT_OF_VIDEO_PARTS * EXTRA_FRAMES_MULTIPLY)
         vs.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
         # read the next frame from the file
         (grabbed, frame) = vs.read()
