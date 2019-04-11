@@ -3,6 +3,7 @@ import mrcnn.model as modellib
 from src.configs import InferenceConfig
 from mrcnn import utils
 import numpy as np
+import imutils
 
 from src.path import COCO_MODEL_PATH, MODEL_DIR
 from src.constants import MINIMAL_DETECTION
@@ -63,7 +64,7 @@ def get_photo_themes(classes, detections):
 
     max_detect = np.array(lst).max()
     index_of_max = lst.index(max_detect)
-    return [get_theme_by_class(classes[index_of_max]), max_detect]
+    return [get_theme_by_class(classes[index_of_max]), mid_detect]
 
 
 def download_trained():
@@ -85,6 +86,10 @@ def init_model():
 
 
 def detect(photos, model):
-    return model.detect(photos)
+    light_photos = []
+    for photo in photos:
+        light_photos.append(imutils.resize(photo, width=450))
+
+    return model.detect(light_photos)
 
 

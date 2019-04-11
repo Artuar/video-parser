@@ -106,5 +106,5 @@ venv.bak/
 .mypy_cache/
 
 /logs/
-/mask_rcnn_coco.h5
+/trained_models/mask_rcnn_coco.h5
 /result/**

@@ -10,4 +10,5 @@ compare:
 https://www.pyimagesearch.com/2014/09/15/python-compare-two-images/
 
 
-pip install Flask-Uploads
+find smiles:
+https://medium.freecodecamp.org/smilfie-auto-capture-selfies-by-detecting-a-smile-using-opencv-and-python-8c5cfb6ec197

@@ -16,6 +16,7 @@ from src.path import RESULT_DIR, VIDEO_STREAM
 from src.detection_model import init_model, detect, get_photo_themes
 from src.detections_utils import create_video_with_detection
 from src.video import get_frame_list
+from src.smile_detection import smile_detection
 
 print("[INFO] init model start")
 
@@ -30,6 +31,11 @@ def get_the_best_frames_photos(details, main_theme):
         detail = details[ind]
         theme = detail[0]
         if theme == main_theme or INCLUDING_ALL_PHOTOS:
+            if theme == 'people':
+                smile = smile_detection(detail[2])
+                if smile <= 0:
+                    continue
+                detail.append(smile)
             photos.append(detail)
 
     photos.sort(key=sort_second, reverse=True)
@@ -43,27 +49,31 @@ def get_different_photos(details):
     current_arr = details
     length = len(current_arr)
 
-    first_photo = details[0]
-    next_array = [first_photo]
+    next_array = []
+    if length > 0:
+        first_photo = current_arr[0]
+        next_array = [first_photo]
 
-    for ph_i in range(length - 2):
-        current_details = current_arr[ph_i + 1]
-        current_photo = current_details[2]
-        match_count = 0
-        for ch_ph_i in range(len(next_array)):
-            next_details = next_array[ch_ph_i]
-            next_photo = next_details[2]
-            first = cv2.cvtColor(current_photo, cv2.COLOR_BGR2GRAY)
-            second = cv2.cvtColor(next_photo, cv2.COLOR_BGR2GRAY)
-            sim = ssim(first, second)
-            ms = mse(first, second)
-            if sim < MAXIMAL_COMPARE and ms > MINIMAL_MID_SQR_ERR:
-                match_count = match_count + 1
-        if match_count == len(next_array):
-            next_array.append(current_details)
-            if len(next_array) == COUNT_OF_TOP_PHOTOS:
-                break
+        for ph_i in range(length - 2):
+            current_details = current_arr[ph_i + 1]
+            current_photo = current_details[2]
+            match_count = 0
+            for ch_ph_i in range(len(next_array)):
+                next_details = next_array[ch_ph_i]
+                next_photo = next_details[2]
+                first = cv2.cvtColor(current_photo, cv2.COLOR_BGR2GRAY)
+                second = cv2.cvtColor(next_photo, cv2.COLOR_BGR2GRAY)
+                sim = ssim(first, second)
+                ms = mse(first, second)
+                if sim < MAXIMAL_COMPARE and ms > MINIMAL_MID_SQR_ERR:
+                    match_count = match_count + 1
 
+            if match_count == len(next_array):
+                next_array.append(current_details)
+                if len(next_array) == COUNT_OF_TOP_PHOTOS:
+                    break
+
+    print('next_array_length', len(next_array))
     return next_array
 
 
